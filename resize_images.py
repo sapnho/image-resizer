@@ -197,4 +197,3 @@ if __name__ == "__main__":
     worker_thread.start()
 
     start_watching()
-    
