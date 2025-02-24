@@ -51,9 +51,16 @@ def resize_image(image_path, attempt=1):
         
         print(f"Processing image: {image_path}")
         with Image.open(image_path) as img:
-            # Preserve EXIF and other metadata
-            exif = img.info.get('exif')
-            icc_profile = img.info.get('icc_profile')
+            # Get metadata if available, otherwise use None
+            try:
+                exif = img.info.get('exif', None)
+            except:
+                exif = None
+            
+            try:
+                icc_profile = img.info.get('icc_profile', None)
+            except:
+                icc_profile = None
             
             # Convert to RGB if needed, preserving alpha channel if present
             if img.mode == 'RGBA':
@@ -67,9 +74,15 @@ def resize_image(image_path, attempt=1):
                 # If it's a HEIC file, we still need to convert it to JPEG
                 if image_path.lower().endswith(('.heic', '.heif')):
                     new_path = os.path.splitext(image_path)[0] + '.jpg'
-                    img.save(new_path, 'JPEG', quality=100, optimize=False)
+                    save_kwargs = {'format': 'JPEG', 'quality': 100, 'optimize': False}
+                    if exif:
+                        save_kwargs['exif'] = exif
+                    if icc_profile:
+                        save_kwargs['icc_profile'] = icc_profile
+                    
+                    img.save(new_path, **save_kwargs)
                     try:
-                        os.remove(image_path)  # Remove original HEIC file
+                        os.remove(image_path)
                         print(f"Converted HEIC to JPEG: {new_path}")
                     except Exception as e:
                         print(f"Error removing original HEIC file: {str(e)}")
@@ -106,25 +119,31 @@ def resize_image(image_path, attempt=1):
                 
                 img.save(new_path, **save_kwargs)
                 try:
-                    os.remove(image_path)  # Remove original HEIC file
+                    os.remove(image_path)
                     print(f"Converted and resized HEIC to JPEG: {new_path}")
                 except Exception as e:
                     print(f"Error removing original HEIC file: {str(e)}")
             else:
-                # For other formats, use original settings
-                save_kwargs = {
-                    'jpg': {'format': 'JPEG', 'quality': 100, 'optimize': False, 'exif': exif},
-                    'jpeg': {'format': 'JPEG', 'quality': 100, 'optimize': False, 'exif': exif},
-                    'png': {'format': 'PNG', 'optimize': False},
-                    'tiff': {'format': 'TIFF', 'compression': None}
-                }
-
-                kwargs = save_kwargs.get(file_ext, {})
+                # For other formats, prepare save arguments
+                save_kwargs = {}
+                
+                if file_ext.lower() in ['jpg', 'jpeg']:
+                    save_kwargs['format'] = 'JPEG'
+                    save_kwargs['quality'] = 100
+                    save_kwargs['optimize'] = False
+                    if exif:
+                        save_kwargs['exif'] = exif
+                elif file_ext.lower() == 'png':
+                    save_kwargs['format'] = 'PNG'
+                    save_kwargs['optimize'] = False
+                elif file_ext.lower() == 'tiff':
+                    save_kwargs['format'] = 'TIFF'
+                    save_kwargs['compression'] = None
                 
                 if icc_profile:
-                    kwargs['icc_profile'] = icc_profile
+                    save_kwargs['icc_profile'] = icc_profile
                 
-                img.save(image_path, **kwargs)
+                img.save(image_path, **save_kwargs)
                 print(f"Successfully saved resized image: {image_path}")
 
     except Exception as e:
