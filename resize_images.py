@@ -51,16 +51,9 @@ def resize_image(image_path, attempt=1):
         
         print(f"Processing image: {image_path}")
         with Image.open(image_path) as img:
-            # Get metadata if available, otherwise use None
-            try:
-                exif = img.info.get('exif', None)
-            except:
-                exif = None
-            
-            try:
-                icc_profile = img.info.get('icc_profile', None)
-            except:
-                icc_profile = None
+            # Preserve EXIF and other metadata if available
+            exif = img.info.get('exif', None)  # Explicitly handle None case
+            icc_profile = img.info.get('icc_profile', None)  # Same for ICC profile
             
             # Convert to RGB if needed, preserving alpha channel if present
             if img.mode == 'RGBA':
@@ -74,15 +67,14 @@ def resize_image(image_path, attempt=1):
                 # If it's a HEIC file, we still need to convert it to JPEG
                 if image_path.lower().endswith(('.heic', '.heif')):
                     new_path = os.path.splitext(image_path)[0] + '.jpg'
-                    save_kwargs = {'format': 'JPEG', 'quality': 100, 'optimize': False}
-                    if exif:
+                    save_kwargs = {'quality': 100, 'optimize': False}
+                    if exif is not None:  # Only include exif if it exists
                         save_kwargs['exif'] = exif
-                    if icc_profile:
+                    if icc_profile is not None:  # Only include ICC if it exists
                         save_kwargs['icc_profile'] = icc_profile
-                    
-                    img.save(new_path, **save_kwargs)
+                    img.save(new_path, 'JPEG', **save_kwargs)
                     try:
-                        os.remove(image_path)
+                        os.remove(image_path)  # Remove original HEIC file
                         print(f"Converted HEIC to JPEG: {new_path}")
                     except Exception as e:
                         print(f"Error removing original HEIC file: {str(e)}")
@@ -107,43 +99,34 @@ def resize_image(image_path, attempt=1):
             file_ext = image_path.lower().split('.')[-1]
             if file_ext in ['heic', 'heif']:
                 new_path = os.path.splitext(image_path)[0] + '.jpg'
-                save_kwargs = {
-                    'format': 'JPEG',
-                    'quality': 100,
-                    'optimize': False
-                }
-                if exif:
+                save_kwargs = {'quality': 100, 'optimize': False}
+                if exif is not None:  # Only include exif if it exists
                     save_kwargs['exif'] = exif
-                if icc_profile:
+                if icc_profile is not None:  # Only include ICC if it exists
                     save_kwargs['icc_profile'] = icc_profile
                 
-                img.save(new_path, **save_kwargs)
+                img.save(new_path, 'JPEG', **save_kwargs)
                 try:
-                    os.remove(image_path)
+                    os.remove(image_path)  # Remove original HEIC file
                     print(f"Converted and resized HEIC to JPEG: {new_path}")
                 except Exception as e:
                     print(f"Error removing original HEIC file: {str(e)}")
             else:
-                # For other formats, prepare save arguments
-                save_kwargs = {}
+                # For other formats, use original settings
+                save_kwargs = {
+                    'jpg': {'format': 'JPEG', 'quality': 100, 'optimize': False},
+                    'jpeg': {'format': 'JPEG', 'quality': 100, 'optimize': False},
+                    'png': {'format': 'PNG', 'optimize': False},
+                    'tiff': {'format': 'TIFF', 'compression': None}
+                }
+
+                kwargs = save_kwargs.get(file_ext, {})
+                if exif is not None:  # Only include exif if it exists
+                    kwargs['exif'] = exif
+                if icc_profile is not None:  # Only include ICC if it exists
+                    kwargs['icc_profile'] = icc_profile
                 
-                if file_ext.lower() in ['jpg', 'jpeg']:
-                    save_kwargs['format'] = 'JPEG'
-                    save_kwargs['quality'] = 100
-                    save_kwargs['optimize'] = False
-                    if exif:
-                        save_kwargs['exif'] = exif
-                elif file_ext.lower() == 'png':
-                    save_kwargs['format'] = 'PNG'
-                    save_kwargs['optimize'] = False
-                elif file_ext.lower() == 'tiff':
-                    save_kwargs['format'] = 'TIFF'
-                    save_kwargs['compression'] = None
-                
-                if icc_profile:
-                    save_kwargs['icc_profile'] = icc_profile
-                
-                img.save(image_path, **save_kwargs)
+                img.save(image_path, **kwargs)
                 print(f"Successfully saved resized image: {image_path}")
 
     except Exception as e:
